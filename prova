@@ -1,0 +1,201 @@
+import sys
+from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QVBoxLayout, QLabel, QRadioButton, QMessageBox, QButtonGroup, QInputDialog, QScrollArea, QTextEdit, QDialog, QProgressBar)
+from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtCore import Qt, QTimer
+
+class PastTenseGame(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.initUI()
+
+    def initUI(self):
+        self.setGeometry(300, 300, 600, 400)
+        self.setWindowTitle('Past Tense Game')
+        self.setStyleSheet("""
+        QWidget {
+            font-family: 'Comic Sans MS';
+            font-size: 18px;
+            background-color: #e6f7ff;
+        }
+        QLabel#TitleLabel {
+            color: #ff6600;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        QLabel#QuestionLabel {
+            color: #3366ff;
+            font-size: 20px;
+        }
+        QRadioButton {
+            color: #333333;
+            font-size: 18px;
+        }
+        QPushButton {
+            background-color: #3399ff;
+            color: white;
+            font-size: 18px;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+        }
+        QPushButton:hover {
+            background-color: #0073e6;
+        }
+        """)
+
+        self.layout = QVBoxLayout()
+
+        self.title_label = QLabel("Past Tense Game", self)
+        self.title_label.setObjectName("TitleLabel")
+        self.layout.addWidget(self.title_label, alignment=Qt.AlignCenter)
+
+        self.progress_bar = QProgressBar(self)
+        self.progress_bar.setMaximum(100)
+        self.layout.addWidget(self.progress_bar)
+
+        self.question_label = QLabel("", self)
+        self.question_label.setObjectName("QuestionLabel")
+        self.layout.addWidget(self.question_label)
+
+        self.options = QButtonGroup(self)
+        for i in range(4):
+            radio_btn = QRadioButton()
+            self.layout.addWidget(radio_btn)
+            self.options.addButton(radio_btn, i)
+
+        self.feedback_image_label = QLabel(self)
+        self.layout.addWidget(self.feedback_image_label, alignment=Qt.AlignCenter)
+
+        self.submit_button = QPushButton('Submit', self)
+        self.submit_button.clicked.connect(self.check_answer)
+        self.layout.addWidget(self.submit_button)
+
+        self.setLayout(self.layout)
+
+        self.student_name = self.get_student_name()
+        self.question_index = 0
+        self.correct_answers = 0
+        self.incorrect_answers = []
+        self.load_questions()
+        self.display_question()
+
+    def get_student_name(self):
+        name, ok = QInputDialog.getText(self, 'Player Name', 'Enter your name:')
+        if ok and name:
+            return name
+        else:
+            QMessageBox.warning(self, 'Attention', 'You must enter a name to start.')
+            sys.exit()
+
+    def load_questions(self):
+        self.questions = [
+            ("I _____ to the park.", ["go", "went", "goes", "gone"], "went"),
+            ("She _____ a picture.", ["draws", "drew", "draw", "drawed"], "drew"),
+            ("We _____ a great movie.", ["see", "saw", "sees", "seen"], "saw"),
+            ("They _____ a big cake.", ["make", "made", "makes", "making"], "made"),
+            ("He _____ very fast.", ["runs", "ran", "run", "runned"], "ran"),
+            ("The cat _____ up the tree.", ["climb", "climbed", "climbs", "climbing"], "climbed"),
+            ("I _____ a new book.", ["read", "reads", "reading", "red"], "read"),
+            ("She _____ her homework.", ["does", "did", "doing", "done"], "did"),
+            ("We _____ the answer.", ["knows", "know", "knew", "knowed"], "knew"),
+            ("They _____ at the joke.", ["laugh", "laughed", "laughs", "laughing"], "laughed"),
+        ]
+
+    def display_question(self):
+        if self.question_index < len(self.questions):
+            question, options, _ = self.questions[self.question_index]
+            question_text = f'Question {self.question_index + 1}: {question}'
+            self.question_label.setText(question_text)
+
+            self.options.setExclusive(False)
+            for i, option in enumerate(options):
+                radio_btn = self.options.button(i)
+                radio_btn.setText(option)
+                radio_btn.setChecked(False)
+                radio_btn.show()
+            for j in range(len(options), 4):
+                self.options.button(j).hide()
+            self.options.setExclusive(True)
+
+            self.feedback_image_label.clear()
+            self.update_progress_bar()
+
+    def check_answer(self):
+        selected_button = self.options.checkedButton()
+        if selected_button is None:
+            QMessageBox.warning(self, 'Attention', 'Please select an answer.')
+            return
+
+        selected_option = selected_button.text()
+        correct_answer = self.questions[self.question_index][2]
+
+        if selected_option == correct_answer:
+            self.correct_answers += 1
+            self.show_feedback_image("correct.png")
+        else:
+            self.incorrect_answers.append((self.questions[self.question_index][0], selected_option, correct_answer))
+            self.show_feedback_image("incorrect.png")
+
+        self.question_index += 1
+        if self.question_index < len(self.questions):
+            QTimer.singleShot(2000, self.display_question)
+        else:
+            QTimer.singleShot(2000, self.show_final_score)
+
+    def show_feedback_image(self, image_path):
+        try:
+            pixmap = QPixmap(image_path)
+            self.feedback_image_label.setPixmap(pixmap)
+            self.feedback_image_label.setScaledContents(True)
+            self.feedback_image_label.setFixedSize(200, 200)
+        except Exception as e:
+            print(f"Error loading feedback image: {e}")
+
+    def update_progress_bar(self):
+        progress = int((self.question_index / len(self.questions)) * 100)
+        self.progress_bar.setValue(progress)
+
+    def show_final_score(self):
+        score_percentage = (self.correct_answers / len(self.questions)) * 100
+        score_message = f'{self.student_name}, your score is {score_percentage:.1f}%. '
+        if score_percentage >= 80:
+            score_message += 'Great job!'
+        else:
+            score_message += 'Keep practicing!'
+
+        if self.incorrect_answers:
+            score_message += '\n\nMistakes:\n'
+            for question, selected, correct in self.incorrect_answers:
+                score_message += f'Question: {question}\n'
+                score_message += f'Your answer: {selected}\n'
+                score_message += f'Correct answer: {correct}\n\n'
+
+        self.show_score_message(score_message)
+
+    def show_score_message(self, message):
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Game Over - Results")
+        dialog.setGeometry(300, 300, 600, 400)
+
+        layout = QVBoxLayout(dialog)
+
+        scroll_area = QScrollArea(dialog)
+        scroll_area.setWidgetResizable(True)
+        layout.addWidget(scroll_area)
+
+        content = QTextEdit()
+        content.setReadOnly(True)
+        content.setText(message)
+        scroll_area.setWidget(content)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+def main():
+    app = QApplication(sys.argv)
+    ex = PastTenseGame()
+    ex.show()
+    sys.exit(app.exec_())
+
+if __name__ == '__main__':
+    main()
